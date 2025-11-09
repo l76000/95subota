@@ -352,8 +352,7 @@ if (!tripId || !vehicleId) {
       const directionPrefix = parts[0];
       const timeShort = parts[1];
       const timeFull = `${timeShort.slice(0, 2)}:${timeShort.slice(2)}:00`;
-     
-console.log(`Pokušavam poklapanje. Smer: ${directionPrefix}. Vreme iz Trip ID-a: ${timeFull}`);
+    
      
       let mapToUse;
       if (directionPrefix === '8170') {
