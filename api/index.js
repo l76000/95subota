@@ -14,7 +14,11 @@ export default async function handler(request, response) {
     }
     const jsonData = await fetchResponse.json();
 
+    console.log('Stigli su podaci sa BusLogic-a:', JSON.stringify(jsonData, null, 2));
+
     const liveVehicles = parseBusLogicData(jsonData);
+
+    console.log('Filtrirana vozila:', liveVehicles);
     
     const sheets = await getGoogleSheetsClient();
     
