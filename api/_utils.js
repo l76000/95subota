@@ -489,20 +489,28 @@ import { streamValues } from 'stream-json/streamers/StreamValues';
 
 const BUSLOGIC_URL = "https://rt.buslogic.baguette.pirnet.si/beograd_not_gtfs_rt/rt.json";
 
+import fetch from 'node-fetch';
+
 export async function fetchBusLogicData() {
   const response = await fetch(BUSLOGIC_URL);
   if (!response.ok) throw new Error('Ne mogu da preuzmem podatke');
 
-  const vehicles = [];
-  const pipeline = chain([
-    response.body,
-    parser(),
-    streamValues(),
-  ]);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let jsonText = '';
 
-  for await (const { value } of pipeline) {
-    const trip = value?.vehicle?.trip;
-    if (trip?.lineNumber === "95") {
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    jsonText += decoder.decode(value, { stream: true });
+  }
+  jsonText += decoder.decode(); // finalize
+
+  const jsonData = JSON.parse(jsonText);
+  const vehicles = [];
+
+  for (const value of jsonData.entity || []) {
+    if (value?.vehicle?.trip?.lineNumber === "95") {
       vehicles.push(value);
     }
   }
