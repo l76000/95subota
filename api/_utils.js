@@ -278,7 +278,6 @@ export const timetableMapB = {
 "20:42:00": 13,
 "20:47:00": 14,
 "20:58:00": 16,
-"20:58:00": 17,
 
 "21:09:00": 18,
 "21:20:00": 1,
@@ -322,189 +321,150 @@ export async function getGoogleSheetsClient() {
 }
 
 export function parseBusLogicData(data) {
-  console.log('🔧 parseBusLogicData() pozvana');
+  console.log('🔧 parseBusLogicData() STARTED');
   
-  if (!data) {
-    console.log('❌ data je null ili undefined');
-    return [];
-  }
-  
-  if (!data.vehicles) {
-    console.log('❌ data.vehicles ne postoji');
-    console.log('❌ Dostupni ključevi u data:', Object.keys(data));
+  if (!data || !data.vehicles || !Array.isArray(data.vehicles)) {
+    console.log('❌ Invalid data structure');
     return [];
   }
 
-  if (!Array.isArray(data.vehicles)) {
-    console.log('❌ data.vehicles NIJE niz!');
-    console.log('❌ Tip data.vehicles:', typeof data.vehicles);
-    return [];
-  }
-
-  console.log('✅ data.vehicles je niz sa', data.vehicles.length, 'elemenata');
+  console.log(`✅ Processing ${data.vehicles.length} vehicles`);
 
   const liveVehicles = [];
-  let totalProcessed = 0;
   let line95Count = 0;
   let failedTripIdCheck = 0;
   let failedVehicleIdCheck = 0;
-  let failedRouteIdCheck = 0;
   let failedTimetableCheck = 0;
 
-  for (const item of data.vehicles) {
-    try {
-      totalProcessed++;
-      
-      // The structure is: item.vehicle.trip and item.vehicle.vehicle
-      const trip = item?.vehicle?.trip;
-      const vehicle = item?.vehicle?.vehicle;
-
-      // Log first 3 items for debugging
-      if (totalProcessed <= 3) {
-        console.log(`\n🔬 VOZILO #${totalProcessed}:`);
-        console.log('  trip:', JSON.stringify(trip, null, 2));
-        console.log('  vehicle:', JSON.stringify(vehicle, null, 2));
-      }
-
-      if (!trip || !vehicle) {
-        if (totalProcessed <= 3) {
-          console.log(`  ❌ Preskačem - nema trip (${!!trip}) ili vehicle (${!!vehicle})`);
-        }
-        continue;
-      }
-
-      // First check: lineNumber must be "95"
-      const lineNumber = trip.lineNumber;
-      
-      if (totalProcessed <= 3) {
-        console.log(`  🔍 lineNumber:`, lineNumber);
-      }
-      
-      if (lineNumber !== "95" && lineNumber !== 95 && String(lineNumber) !== "95") {
-        if (totalProcessed <= 3) {
-          console.log(`  ❌ Nije linija 95 (vrednost: ${lineNumber})`);
-        }
-        continue;
-      }
-
+  // First pass: Find ALL line 95 vehicles
+  console.log('\n🔍 SEARCHING FOR LINE 95 VEHICLES...');
+  for (let i = 0; i < data.vehicles.length; i++) {
+    const item = data.vehicles[i];
+    const trip = item?.vehicle?.trip;
+    
+    if (trip && trip.lineNumber === "95") {
       line95Count++;
-      console.log(`  ✨ NAŠAO LINIJU 95! (vozilo #${totalProcessed})`);
-
-      // Second check: tripId must contain 8170 or 8171
-      const tripId = trip.tripId;
-      const routeId = trip.routeId;
-      
-      console.log(`  🎯 tripId: ${tripId}`);
-      console.log(`  🎯 routeId: ${routeId}`);
-
-      if (!tripId) {
-        failedTripIdCheck++;
-        console.log('  ⚠️ Nema tripId!');
-        continue;
-      }
-
-      // Check if tripId starts with 8170 or 8171
-      if (!tripId.startsWith('8170') && !tripId.startsWith('8171')) {
-        failedRouteIdCheck++;
-        console.log(`  ⚠️ tripId ne počinje sa 8170 ili 8171: ${tripId}`);
-        continue;
-      }
-
-      console.log(`  ✅ tripId počinje sa 8170 ili 8171`);
-
-      // Third check: vehicle id must exist and start with P9
-      const vehicleId = vehicle.id;
-      console.log(`  🎯 vehicleId: ${vehicleId}`);
-
-      if (!vehicleId) {
-        failedVehicleIdCheck++;
-        console.log('  ⚠️ Nema vehicleId!');
-        continue;
-      }
-
-      if (!String(vehicleId).startsWith('P9')) {
-        failedVehicleIdCheck++;
-        console.log(`  ⚠️ vehicleId ne počinje sa P9: ${vehicleId}`);
-        continue;
-      }
-
-      console.log(`  ✅ vehicleId počinje sa P9`);
-
-      // Extract direction and time from tripId
-      // Format is: "8170_1159" where 8170 is direction, 1159 is time (11:59)
-      const parts = String(tripId).split('_');
-      console.log(`  🔍 tripId parts:`, parts);
-      
-      if (parts.length !== 2) {
-        console.log(`  ⚠️ tripId format nije dobar (${parts.length} delova umesto 2)`);
-        continue;
-      }
-      
-      const directionPrefix = parts[0]; // "8170" or "8171"
-      const timeShort = parts[1];       // e.g., "1159"
-      
-      // Use startTime from trip instead of parsing from tripId
-      const startTime = trip.startTime; // Already in format "11:59:00"
-      console.log(`  🔍 startTime: ${startTime}`);
-      
-      if (!startTime) {
-        console.log(`  ⚠️ Nema startTime u trip objektu`);
-        continue;
-      }
-
-      console.log(`  🔍 directionPrefix: ${directionPrefix}`);
-
-      // Determine which timetable map to use based on direction
-      let mapToUse;
-      if (directionPrefix === '8170') {
-        mapToUse = timetableMapA;
-        console.log(`  ✅ Koristim timetableMapA`);
-      } else if (directionPrefix === '8171') {
-        mapToUse = timetableMapB;
-        console.log(`  ✅ Koristim timetableMapB`);
-      } else {
-        console.log(`  ⚠️ Nepoznat directionPrefix: ${directionPrefix}`);
-        continue;
-      }
-
-      // Look up the departure number in timetable
-      const brojPolaska = mapToUse[startTime];
-      console.log(`  🔍 brojPolaska iz mape za vreme ${startTime}: ${brojPolaska}`);
-      
-      if (!brojPolaska) {
-        failedTimetableCheck++;
-        console.log(`  ⚠️ Vreme ${startTime} nije u timetable mapi`);
-        continue;
-      }
-      
-      // Extract vehicle number (remove P9 prefix)
-      const vozilo = String(vehicleId).substring(2);
-      console.log(`  ✅ Vozilo broj: ${vozilo}`);
-
-      liveVehicles.push({
-        brojPolaska,
-        vozilo,
-        vreme: startTime,
-      });
-
-      console.log(`  ✅✅✅ USPEŠNO DODATO! brojPolaska=${brojPolaska}, vozilo=${vozilo}, vreme=${startTime}`);
-
-    } catch (e) {
-      console.error("❌ Greška pri parsiranju vozila:", e);
-      console.error("❌ Item:", JSON.stringify(item, null, 2).slice(0, 500));
+      console.log(`\n✨ FOUND LINE 95 at position ${i}:`);
+      console.log(`   tripId: ${trip.tripId}`);
+      console.log(`   startTime: ${trip.startTime}`);
+      console.log(`   vehicleId: ${item?.vehicle?.vehicle?.id}`);
     }
   }
+  
+  console.log(`\n📊 Total line 95 vehicles found: ${line95Count}`);
 
-  // Summary statistics
-  console.log('\n📊 ========== STATISTIKA PARSIRANJA ==========');
-  console.log(`   Ukupno obrađeno vozila: ${totalProcessed}`);
-  console.log(`   Vozila sa linijom 95: ${line95Count}`);
-  console.log(`   Neuspelo zbog tripId: ${failedTripIdCheck}`);
-  console.log(`   Neuspelo zbog routeId (8170/8171): ${failedRouteIdCheck}`);
-  console.log(`   Neuspelo zbog vehicleId: ${failedVehicleIdCheck}`);
-  console.log(`   Neuspelo zbog vremena u mapi: ${failedTimetableCheck}`);
-  console.log(`   ✅ UKUPNO USPEŠNO: ${liveVehicles.length}`);
-  console.log('============================================\n');
+  // Second pass: Process ALL vehicles
+  for (let i = 0; i < data.vehicles.length; i++) {
+    const item = data.vehicles[i];
+    
+    const trip = item?.vehicle?.trip;
+    const vehicle = item?.vehicle?.vehicle;
+    
+    if (!trip || !vehicle) {
+      continue;
+    }
+
+    // CHECK 1: Must be line 95
+    if (trip.lineNumber !== "95") {
+      continue;
+    }
+
+    console.log(`\n🚌 PROCESSING LINE 95 VEHICLE at position ${i}`);
+    
+    // CHECK 2: tripId must exist and start with 8170 or 8171
+    const tripId = trip.tripId;
+    console.log(`   tripId: "${tripId}"`);
+    
+    if (!tripId) {
+      failedTripIdCheck++;
+      console.log(`   ❌ FAILED: No tripId`);
+      continue;
+    }
+
+    const tripIdStr = String(tripId);
+    if (!tripIdStr.startsWith('8170') && !tripIdStr.startsWith('8171')) {
+      console.log(`   ❌ FAILED: tripId doesn't start with 8170 or 8171`);
+      continue;
+    }
+    
+    console.log(`   ✅ PASS: tripId starts with 8170/8171`);
+    
+    // CHECK 3: vehicle.id must exist and start with P9
+    const vehicleId = vehicle.id;
+    console.log(`   vehicleId: "${vehicleId}"`);
+    
+    if (!vehicleId) {
+      failedVehicleIdCheck++;
+      console.log(`   ❌ FAILED: No vehicleId`);
+      continue;
+    }
+
+    const vehicleIdStr = String(vehicleId);
+    if (!vehicleIdStr.startsWith('P9')) {
+      failedVehicleIdCheck++;
+      console.log(`   ❌ FAILED: vehicleId doesn't start with P9`);
+      continue;
+    }
+    
+    console.log(`   ✅ PASS: vehicleId starts with P9`);
+    
+    // CHECK 4: startTime must exist and be in timetable
+    const startTime = trip.startTime;
+    console.log(`   startTime: "${startTime}"`);
+    
+    if (!startTime) {
+      console.log(`   ❌ FAILED: No startTime`);
+      continue;
+    }
+    
+    // Determine direction and timetable map
+    const directionPrefix = tripIdStr.split('_')[0];
+    let mapToUse;
+    
+    if (directionPrefix === '8170') {
+      mapToUse = timetableMapA;
+      console.log(`   Using timetableMapA (direction 8170)`);
+    } else if (directionPrefix === '8171') {
+      mapToUse = timetableMapB;
+      console.log(`   Using timetableMapB (direction 8171)`);
+    } else {
+      console.log(`   ❌ FAILED: Unknown direction ${directionPrefix}`);
+      continue;
+    }
+    
+    const brojPolaska = mapToUse[startTime];
+    console.log(`   Looking up "${startTime}" in timetable: ${brojPolaska}`);
+    
+    if (!brojPolaska) {
+      failedTimetableCheck++;
+      console.log(`   ❌ FAILED: startTime not in timetable`);
+      continue;
+    }
+    
+    console.log(`   ✅ PASS: Found brojPolaska = ${brojPolaska}`);
+    
+    // SUCCESS! Add to results
+    const vozilo = vehicleIdStr.substring(2);
+    
+    liveVehicles.push({
+      brojPolaska,
+      vozilo,
+      vreme: startTime,
+    });
+    
+    console.log(`   🎉 SUCCESS! Added: brojPolaska=${brojPolaska}, vozilo=${vozilo}, vreme=${startTime}`);
+  }
+
+  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`📊 FINAL STATISTICS`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`Total vehicles in JSON: ${data.vehicles.length}`);
+  console.log(`Line 95 vehicles found: ${line95Count}`);
+  console.log(`Failed tripId check: ${failedTripIdCheck}`);
+  console.log(`Failed vehicleId check: ${failedVehicleIdCheck}`);
+  console.log(`Failed timetable check: ${failedTimetableCheck}`);
+  console.log(`✅ SUCCESSFULLY ADDED: ${liveVehicles.length}`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
   return liveVehicles;
 }
