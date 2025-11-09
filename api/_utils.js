@@ -363,10 +363,11 @@ if (!tripId || !vehicleId) {
         continue;
       }
 
-      const brojPolaska = mapToUse[timeFull];
-      if (!brojPolaska) {
-        continue;
-      }
+     // const brojPolaska = mapToUse[timeFull];
+// if (!brojPolaska) {
+//   // console.log("Odbijeno: Nema polaska za to vreme."); 
+//   continue; 
+// }
       
       const vozilo = vehicleId;
 
