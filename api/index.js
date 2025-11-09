@@ -29,15 +29,33 @@ export default async function handler(request, response) {
     // Get as text first to verify complete reception
     const text = await fetchResponse.text();
     console.log('✅ Stvarna veličina primljenog teksta (bytes):', text.length);
-    console.log('🔍 Poslednji karakter odgovora:', text.slice(-10)); // Last 10 chars to verify JSON end
+    console.log('🔍 Prvi karakteri odgovora:', text.slice(0, 100));
+    console.log('🔍 Poslednji karakteri odgovora:', text.slice(-50));
 
     // Parse JSON
     const jsonData = JSON.parse(text);
     console.log('🚌 Ukupan broj vozila u JSON-u:', jsonData.vehicles?.length || 0);
-    console.log('📊 Primeri prvih 2 vozila:', JSON.stringify(jsonData.vehicles?.slice(0, 2), null, 2));
+    
+    // Detailed inspection of first few vehicles
+    if (jsonData.vehicles && jsonData.vehicles.length > 0) {
+      console.log('🔬 Struktura prvog vozila:', JSON.stringify(jsonData.vehicles[0], null, 2));
+      
+      // Check for line 95 specifically
+      const line95Vehicles = jsonData.vehicles.filter(item => {
+        const lineNumber = item?.vehicle?.trip?.lineNumber || 
+                          item?.vehicle?.trip?.routeId || 
+                          item?.vehicle?.trip?.route_id;
+        return lineNumber === "95" || lineNumber === 95;
+      });
+      console.log('🎯 Vozila sa linijom 95 (pre parsiranja):', line95Vehicles.length);
+      
+      if (line95Vehicles.length > 0) {
+        console.log('📋 Primer vozila linije 95:', JSON.stringify(line95Vehicles[0], null, 2));
+      }
+    }
 
     const liveVehicles = parseBusLogicData(jsonData);
-    console.log('✨ Broj filtriranih vozila za liniju 95:', liveVehicles.length);
+    console.log('✨ Broj filtriranih vozila za liniju 95 (posle parsiranja):', liveVehicles.length);
     console.log('🎯 Filtrirana vozila:', liveVehicles);
     
     const sheets = await getGoogleSheetsClient();
