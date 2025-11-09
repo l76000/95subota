@@ -3,21 +3,18 @@ import {
   parseBusLogicData, 
   updateSheetData 
 } from './_utils.js';
-import { fetchBusLogicData } from './_utils.js';
-
 
 const BUSLOGIC_URL = "https://rt.buslogic.baguette.pirnet.si/beograd_not_gtfs_rt/rt.json";
 
 export default async function handler(request, response) {
   try {
-    const jsonData = await fetchBusLogicData();
-
-
-    console.log('Stigli su podaci sa BusLogic-a:', JSON.stringify(jsonData, null, 2));
+    const fetchResponse = await fetch(BUSLOGIC_URL);
+    if (!fetchResponse.ok) {
+      throw new Error(`Greška pri preuzimanju podataka: ${fetchResponse.statusText}`);
+    }
+    const jsonData = await fetchResponse.json();
 
     const liveVehicles = parseBusLogicData(jsonData);
-
-    console.log('Filtrirana vozila:', liveVehicles);
     
     const sheets = await getGoogleSheetsClient();
     
