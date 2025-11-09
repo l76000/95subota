@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "googleapis": "^128.0.0",
-    "stream-json": "^1.8.0",
-    "stream-chain": "^2.2.5",
+    "googleapis": "^128.0.0"
   }
 }
