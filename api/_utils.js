@@ -346,25 +346,24 @@ export function parseBusLogicData(data) {
   const liveVehicles = [];
   let totalProcessed = 0;
   let line95Count = 0;
-  let failedLineCheck = 0;
   let failedTripIdCheck = 0;
   let failedVehicleIdCheck = 0;
-  let failedTripIdFormatCheck = 0;
-  let failedDirectionCheck = 0;
+  let failedRouteIdCheck = 0;
   let failedTimetableCheck = 0;
 
   for (const item of data.vehicles) {
     try {
       totalProcessed++;
+      
+      // The structure is: item.vehicle.trip and item.vehicle.vehicle
       const trip = item?.vehicle?.trip;
       const vehicle = item?.vehicle?.vehicle;
 
-      // Log first 3 items structure for debugging
+      // Log first 3 items for debugging
       if (totalProcessed <= 3) {
         console.log(`\n🔬 VOZILO #${totalProcessed}:`);
-        console.log('  Struktura item:', JSON.stringify(item, null, 2).slice(0, 500));
-        console.log('  trip object:', trip);
-        console.log('  vehicle object:', vehicle);
+        console.log('  trip:', JSON.stringify(trip, null, 2));
+        console.log('  vehicle:', JSON.stringify(vehicle, null, 2));
       }
 
       if (!trip || !vehicle) {
@@ -374,16 +373,14 @@ export function parseBusLogicData(data) {
         continue;
       }
 
-      // Check ALL possible field names for line number
-      const lineNumber = trip.lineNumber || trip.routeId || trip.route_id || 
-                        trip.lineId || trip.line_id || trip.route || trip.line;
+      // First check: lineNumber must be "95"
+      const lineNumber = trip.lineNumber;
       
       if (totalProcessed <= 3) {
-        console.log(`  🔍 Pronađen lineNumber:`, lineNumber, typeof lineNumber);
+        console.log(`  🔍 lineNumber:`, lineNumber);
       }
       
       if (lineNumber !== "95" && lineNumber !== 95 && String(lineNumber) !== "95") {
-        failedLineCheck++;
         if (totalProcessed <= 3) {
           console.log(`  ❌ Nije linija 95 (vrednost: ${lineNumber})`);
         }
@@ -393,17 +390,31 @@ export function parseBusLogicData(data) {
       line95Count++;
       console.log(`  ✨ NAŠAO LINIJU 95! (vozilo #${totalProcessed})`);
 
-      const tripId = trip.tripId || trip.trip_id || trip.id;
-      const vehicleId = vehicle.id || vehicle.label || vehicle.vehicleId;
-
+      // Second check: tripId must contain 8170 or 8171
+      const tripId = trip.tripId;
+      const routeId = trip.routeId;
+      
       console.log(`  🎯 tripId: ${tripId}`);
-      console.log(`  🎯 vehicleId: ${vehicleId}`);
+      console.log(`  🎯 routeId: ${routeId}`);
 
       if (!tripId) {
         failedTripIdCheck++;
         console.log('  ⚠️ Nema tripId!');
         continue;
       }
+
+      // Check if tripId starts with 8170 or 8171
+      if (!tripId.startsWith('8170') && !tripId.startsWith('8171')) {
+        failedRouteIdCheck++;
+        console.log(`  ⚠️ tripId ne počinje sa 8170 ili 8171: ${tripId}`);
+        continue;
+      }
+
+      console.log(`  ✅ tripId počinje sa 8170 ili 8171`);
+
+      // Third check: vehicle id must exist and start with P9
+      const vehicleId = vehicle.id;
+      console.log(`  🎯 vehicleId: ${vehicleId}`);
 
       if (!vehicleId) {
         failedVehicleIdCheck++;
@@ -416,24 +427,34 @@ export function parseBusLogicData(data) {
         console.log(`  ⚠️ vehicleId ne počinje sa P9: ${vehicleId}`);
         continue;
       }
-      
+
+      console.log(`  ✅ vehicleId počinje sa P9`);
+
+      // Extract direction and time from tripId
+      // Format is: "8170_1159" where 8170 is direction, 1159 is time (11:59)
       const parts = String(tripId).split('_');
-      console.log(`  🔍 tripId parts nakon split('_'):`, parts);
+      console.log(`  🔍 tripId parts:`, parts);
       
       if (parts.length !== 2) {
-        failedTripIdFormatCheck++;
-        console.log(`  ⚠️ TripId format nije dobar (${parts.length} delova umesto 2)`);
+        console.log(`  ⚠️ tripId format nije dobar (${parts.length} delova umesto 2)`);
         continue;
       }
       
-      const directionPrefix = parts[0];
-      const timeShort = parts[1];
-      const timeFull = `${timeShort.slice(0, 2)}:${timeShort.slice(2)}:00`;
+      const directionPrefix = parts[0]; // "8170" or "8171"
+      const timeShort = parts[1];       // e.g., "1159"
       
-      console.log(`  🔍 directionPrefix: ${directionPrefix}`);
-      console.log(`  🔍 timeShort: ${timeShort}`);
-      console.log(`  🔍 timeFull: ${timeFull}`);
+      // Use startTime from trip instead of parsing from tripId
+      const startTime = trip.startTime; // Already in format "11:59:00"
+      console.log(`  🔍 startTime: ${startTime}`);
+      
+      if (!startTime) {
+        console.log(`  ⚠️ Nema startTime u trip objektu`);
+        continue;
+      }
 
+      console.log(`  🔍 directionPrefix: ${directionPrefix}`);
+
+      // Determine which timetable map to use based on direction
       let mapToUse;
       if (directionPrefix === '8170') {
         mapToUse = timetableMapA;
@@ -442,34 +463,35 @@ export function parseBusLogicData(data) {
         mapToUse = timetableMapB;
         console.log(`  ✅ Koristim timetableMapB`);
       } else {
-        failedDirectionCheck++;
         console.log(`  ⚠️ Nepoznat directionPrefix: ${directionPrefix}`);
         continue;
       }
 
-      const brojPolaska = mapToUse[timeFull];
-      console.log(`  🔍 brojPolaska iz mape: ${brojPolaska}`);
+      // Look up the departure number in timetable
+      const brojPolaska = mapToUse[startTime];
+      console.log(`  🔍 brojPolaska iz mape za vreme ${startTime}: ${brojPolaska}`);
       
       if (!brojPolaska) {
         failedTimetableCheck++;
-        console.log(`  ⚠️ Vreme ${timeFull} nije u timetable mapi`);
+        console.log(`  ⚠️ Vreme ${startTime} nije u timetable mapi`);
         continue;
       }
       
+      // Extract vehicle number (remove P9 prefix)
       const vozilo = String(vehicleId).substring(2);
       console.log(`  ✅ Vozilo broj: ${vozilo}`);
 
       liveVehicles.push({
         brojPolaska,
         vozilo,
-        vreme: timeFull,
+        vreme: startTime,
       });
 
-      console.log(`  ✅✅✅ USPEŠNO DODATO!`);
+      console.log(`  ✅✅✅ USPEŠNO DODATO! brojPolaska=${brojPolaska}, vozilo=${vozilo}, vreme=${startTime}`);
 
     } catch (e) {
       console.error("❌ Greška pri parsiranju vozila:", e);
-      console.error("❌ Item:", JSON.stringify(item, null, 2).slice(0, 300));
+      console.error("❌ Item:", JSON.stringify(item, null, 2).slice(0, 500));
     }
   }
 
@@ -477,11 +499,9 @@ export function parseBusLogicData(data) {
   console.log('\n📊 ========== STATISTIKA PARSIRANJA ==========');
   console.log(`   Ukupno obrađeno vozila: ${totalProcessed}`);
   console.log(`   Vozila sa linijom 95: ${line95Count}`);
-  console.log(`   Neuspelo zbog linije: ${failedLineCheck}`);
   console.log(`   Neuspelo zbog tripId: ${failedTripIdCheck}`);
+  console.log(`   Neuspelo zbog routeId (8170/8171): ${failedRouteIdCheck}`);
   console.log(`   Neuspelo zbog vehicleId: ${failedVehicleIdCheck}`);
-  console.log(`   Neuspelo zbog formata tripId: ${failedTripIdFormatCheck}`);
-  console.log(`   Neuspelo zbog direction prefixa: ${failedDirectionCheck}`);
   console.log(`   Neuspelo zbog vremena u mapi: ${failedTimetableCheck}`);
   console.log(`   ✅ UKUPNO USPEŠNO: ${liveVehicles.length}`);
   console.log('============================================\n');
