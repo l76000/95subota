@@ -482,3 +482,30 @@ export async function updateSheetData(sheets, liveVehicles) {
   
   return { header, rows: finalRows };
 }
+
+import { chain } from 'stream-chain';
+import { parser } from 'stream-json';
+import { streamValues } from 'stream-json/streamers/StreamValues';
+
+const BUSLOGIC_URL = "https://rt.buslogic.baguette.pirnet.si/beograd_not_gtfs_rt/rt.json";
+
+export async function fetchBusLogicData() {
+  const response = await fetch(BUSLOGIC_URL);
+  if (!response.ok) throw new Error('Ne mogu da preuzmem podatke');
+
+  const vehicles = [];
+  const pipeline = chain([
+    response.body,
+    parser(),
+    streamValues(),
+  ]);
+
+  for await (const { value } of pipeline) {
+    const trip = value?.vehicle?.trip;
+    if (trip?.lineNumber === "95") {
+      vehicles.push(value);
+    }
+  }
+
+  return { vehicles };
+}
