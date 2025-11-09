@@ -489,10 +489,9 @@ import { streamValues } from 'stream-json/streamers/StreamValues';
 
 const BUSLOGIC_URL = "https://rt.buslogic.baguette.pirnet.si/beograd_not_gtfs_rt/rt.json";
 
-import fetch from 'node-fetch';
 
 export async function fetchBusLogicData() {
-  const response = await fetch(BUSLOGIC_URL);
+  const response = await fetch(BUSLOGIC_URL); // globalni fetch
   if (!response.ok) throw new Error('Ne mogu da preuzmem podatke');
 
   const reader = response.body.getReader();
@@ -504,7 +503,7 @@ export async function fetchBusLogicData() {
     if (done) break;
     jsonText += decoder.decode(value, { stream: true });
   }
-  jsonText += decoder.decode(); // finalize
+  jsonText += decoder.decode();
 
   const jsonData = JSON.parse(jsonText);
   const vehicles = [];
