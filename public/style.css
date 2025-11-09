@@ -1,171 +1,202 @@
-  body { 
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: linear-gradient(135deg, #0a0e27 0%, #121212 100%);
+    min-height: 100vh;
+    color: #E0E0E0;
+    padding: 20px;
+}
 
-        background-color: #121212; 
+h1 {
+    text-align: center;
+    color: #03DAC6;
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px rgba(3, 218, 198, 0.3);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
 
-        margin: 0; 
+p {
+    text-align: center;
+    color: #BB86FC;
+    font-size: 1.1em;
+    margin-bottom: 30px;
+    font-style: italic;
+}
 
-        padding: 20px; 
+table {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #1E1E1E;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
 
-        color: #E0E0E0; 
+thead {
+    background: linear-gradient(135deg, #03DAC6 0%, #018786 100%);
+}
 
+thead tr th {
+    padding: 18px 16px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #0a0e27;
+    border-bottom: 3px solid #018786;
+}
+
+tbody tr {
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #2a2a2a;
+}
+
+tbody tr:hover {
+    background: rgba(3, 218, 198, 0.08);
+    transform: scale(1.01);
+}
+
+tbody tr:last-child {
+    border-bottom: none;
+}
+
+tbody tr td {
+    padding: 16px;
+    font-size: 1.05em;
+    vertical-align: middle;
+}
+
+/* Broj Polaska - Prva kolona */
+tbody tr td:nth-child(1) {
+    font-weight: 700;
+    color: #03DAC6;
+    font-size: 1.2em;
+    text-shadow: 0 0 10px rgba(3, 218, 198, 0.2);
+}
+
+/* Vozilo - Druga kolona */
+tbody tr td:nth-child(2) {
+    font-weight: 700;
+    color: #BB86FC;
+    font-size: 1.1em;
+}
+
+/* Vreme Polaska - Treća kolona */
+tbody tr td:nth-child(3) {
+    color: #BDBDBD;
+    font-family: 'Courier New', monospace;
+    font-size: 1em;
+}
+
+/* Zamena 1, 2, 3 - Četvrta, peta, šesta kolona */
+tbody tr td:nth-child(4),
+tbody tr td:nth-child(5),
+tbody tr td:nth-child(6) {
+    color: #CF6679;
+    font-weight: 600;
+    font-size: 1em;
+}
+
+/* Prazne ćelije */
+tbody tr td:empty::after {
+    content: "—";
+    color: #424242;
+    font-weight: 300;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
     }
-
     
-
-    .container { 
-
-        max-width: 1000px; /* Increased max width for more space */
-
-        margin: auto; 
-
-        background: #1E1E1E; 
-
-        padding: 30px; /* Increased container padding */
-
-        border-radius: 8px; 
-
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3); /* Enhanced shadow */
-
+    h1 {
+        font-size: 1.8em;
     }
-
     
-
-    h1 { 
-
-        text-align: center; 
-
-        color: #03DAC6; 
-
-        margin-bottom: 5px; 
-
+    table {
+        font-size: 0.85em;
     }
-
     
-
-    #last-updated { 
-
-        text-align: center; 
-
-        font-style: italic; 
-
-        color: #BB86FC; /* Changed color for distinction */
-
-        margin-bottom: 30px; 
-
-        font-size: 1.1em; /* Slightly larger text */
-
+    thead tr th {
+        padding: 12px 8px;
+        font-size: 0.8em;
     }
-
     
-
-    #results-container { 
-
-        border-top: 1px solid #333333; 
-
-        padding-top: 10px; 
-
+    tbody tr td {
+        padding: 10px 8px;
     }
-
     
-
-    /* Grid Row Style - Increased Spacing */
-
-    .result-item {
-
-        display: grid;
-
-        /* Kept column structure, adjusted relative sizes slightly */
-
-        grid-template-columns: 1.2fr 1fr 1.3fr 1fr 1fr 1fr; 
-
-        padding: 16px 12px; /* Increased vertical padding (top/bottom) */
-
-        border-bottom: 1px solid #333333;
-
-        font-size: 1.1em; /* Increased font size for readability */
-
-        align-items: center;
-
-        gap: 25px; /* Significantly increased space between columns */
-
+    tbody tr td:nth-child(1) {
+        font-size: 1em;
     }
+}
 
-    
-
-    /* Header Style */
-
-    .result-header {
-
-        font-weight: bold;
-
-        color: #03DAC6; /* Header color */
-
-        font-size: 1.15em; /* Larger header text */
-
-        border-bottom: 2px solid #03DAC6;
-
-        padding-bottom: 10px; /* More space under the header line */
-
+@media (max-width: 480px) {
+    h1 {
+        font-size: 1.5em;
     }
-
     
-
-    /* Individual Column Styles */
-
-    .result-item .block { 
-
-        font-weight: bold;
-
-        color: #E0E0E0;
-
-    } 
-
-    
-
-    .result-item .vehicle { 
-
-        color: #03DAC6; /* Primary bus ID color */
-
-        font-weight: bold;
-
+    p {
+        font-size: 0.9em;
     }
-
     
-
-    .result-item .time { 
-
-        color: #BDBDBD; 
-
-        font-size: 0.9em; 
-
-        white-space: nowrap; /* Prevents time from wrapping */
-
+    table {
+        font-size: 0.75em;
     }
-
     
-
-    /* Style for replacements */
-
-    .result-item .replacement { 
-
-        color: #CF6679; 
-
-        font-weight: bold; 
-
+    thead tr th {
+        padding: 10px 6px;
+        font-size: 0.7em;
     }
-
     
-
-    .loading { 
-
-        text-align: center; 
-
-        font-size: 1.4em; /* Larger loading text */
-
-        color: #03DAC6; 
-
-        padding: 40px; 
-
+    tbody tr td {
+        padding: 8px 6px;
     }
+}
+
+/* Animacija pri učitavanju */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+table {
+    animation: fadeIn 0.6s ease-out;
+}
+
+/* Scroll bar styling */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1E1E1E;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #03DAC6;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #018786;
+}
