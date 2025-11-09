@@ -337,12 +337,12 @@ export function parseBusLogicData(data) {
         continue;
       }
 
-      const tripId = trip.tripId;
-      const vehicleId = vehicle.id;
+     const tripId = trip.tripId;
+const vehicleId = vehicle.id;
 
-      if (!tripId || !vehicleId || !vehicleId.startsWith('P9')) {
-        continue;
-      }
+if (!tripId || !vehicleId) {
+  continue;
+}
       
       const parts = tripId.split('_');
       if (parts.length !== 2) {
@@ -367,7 +367,7 @@ export function parseBusLogicData(data) {
         continue;
       }
       
-      const vozilo = vehicleId.substring(2);
+      const vozilo = vehicleId;
 
       liveVehicles.push({
         brojPolaska,
