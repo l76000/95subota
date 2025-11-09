@@ -5,7 +5,7 @@ export const SHEET_NAME = 'Sheet1';
 const FULL_RANGE = `${SHEET_NAME}!A:F`;
 
 export const timetableMapA = {
-"04:45:00": 18,
+ "04:45:00": 18,
 
 "05:05:00": 1,
 "05:25:00": 5,
@@ -153,7 +153,7 @@ export const timetableMapA = {
 };
 
 export const timetableMapB = {
-"04:00:00": 1,
+ "04:00:00": 1,
 "04:25:00": 5,
 "04:45:00": 8,
 
@@ -278,7 +278,6 @@ export const timetableMapB = {
 "20:42:00": 13,
 "20:47:00": 14,
 "20:58:00": 16,
-"20:58:00": 17,
 
 "21:09:00": 18,
 "21:20:00": 1,
@@ -324,7 +323,6 @@ export async function getGoogleSheetsClient() {
 export function parseBusLogicData(data) {
   console.log('🔧 parseBusLogicData() STARTED');
   
-  // THE FIX: data is the array itself, not data.vehicles
   if (!Array.isArray(data)) {
     console.log('❌ data is not an array');
     return [];
@@ -334,28 +332,7 @@ export function parseBusLogicData(data) {
 
   const liveVehicles = [];
   let line95Count = 0;
-  let failedTripIdCheck = 0;
-  let failedVehicleIdCheck = 0;
-  let failedTimetableCheck = 0;
 
-  // First pass: Find ALL line 95 vehicles
-  console.log('\n🔍 SEARCHING FOR LINE 95 VEHICLES...');
-  for (let i = 0; i < data.length; i++) {
-    const item = data[i];
-    const trip = item?.vehicle?.trip;
-    
-    if (trip && trip.lineNumber === "95") {
-      line95Count++;
-      console.log(`\n✨ FOUND LINE 95 at position ${i}:`);
-      console.log(`   tripId: ${trip.tripId}`);
-      console.log(`   startTime: ${trip.startTime}`);
-      console.log(`   vehicleId: ${item?.vehicle?.vehicle?.id}`);
-    }
-  }
-  
-  console.log(`\n📊 Total line 95 vehicles found: ${line95Count}`);
-
-  // Second pass: Process ALL vehicles
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
     
@@ -366,86 +343,57 @@ export function parseBusLogicData(data) {
       continue;
     }
 
-    // CHECK 1: Must be line 95
     if (trip.lineNumber !== "95") {
       continue;
     }
 
-    console.log(`\n🚌 PROCESSING LINE 95 VEHICLE at position ${i}`);
+    line95Count++;
     
-    // CHECK 2: tripId must exist and start with 8170 or 8171
     const tripId = trip.tripId;
-    console.log(`   tripId: "${tripId}"`);
     
     if (!tripId) {
-      failedTripIdCheck++;
-      console.log(`   ❌ FAILED: No tripId`);
       continue;
     }
 
     const tripIdStr = String(tripId);
     if (!tripIdStr.startsWith('8170') && !tripIdStr.startsWith('8171')) {
-      console.log(`   ❌ FAILED: tripId doesn't start with 8170 or 8171`);
       continue;
     }
     
-    console.log(`   ✅ PASS: tripId starts with 8170/8171`);
-    
-    // CHECK 3: vehicle.id must exist and start with P9
     const vehicleId = vehicle.id;
-    console.log(`   vehicleId: "${vehicleId}"`);
     
     if (!vehicleId) {
-      failedVehicleIdCheck++;
-      console.log(`   ❌ FAILED: No vehicleId`);
       continue;
     }
 
     const vehicleIdStr = String(vehicleId);
     if (!vehicleIdStr.startsWith('P9')) {
-      failedVehicleIdCheck++;
-      console.log(`   ❌ FAILED: vehicleId doesn't start with P9`);
       continue;
     }
     
-    console.log(`   ✅ PASS: vehicleId starts with P9`);
-    
-    // CHECK 4: startTime must exist and be in timetable
     const startTime = trip.startTime;
-    console.log(`   startTime: "${startTime}"`);
     
     if (!startTime) {
-      console.log(`   ❌ FAILED: No startTime`);
       continue;
     }
     
-    // Determine direction and timetable map
     const directionPrefix = tripIdStr.split('_')[0];
     let mapToUse;
     
     if (directionPrefix === '8170') {
       mapToUse = timetableMapA;
-      console.log(`   Using timetableMapA (direction 8170)`);
     } else if (directionPrefix === '8171') {
       mapToUse = timetableMapB;
-      console.log(`   Using timetableMapB (direction 8171)`);
     } else {
-      console.log(`   ❌ FAILED: Unknown direction ${directionPrefix}`);
       continue;
     }
     
     const brojPolaska = mapToUse[startTime];
-    console.log(`   Looking up "${startTime}" in timetable: ${brojPolaska}`);
     
     if (!brojPolaska) {
-      failedTimetableCheck++;
-      console.log(`   ❌ FAILED: startTime not in timetable`);
       continue;
     }
     
-    console.log(`   ✅ PASS: Found brojPolaska = ${brojPolaska}`);
-    
-    // SUCCESS! Add to results
     const vozilo = vehicleIdStr.substring(2);
     
     liveVehicles.push({
@@ -454,24 +402,18 @@ export function parseBusLogicData(data) {
       vreme: startTime,
     });
     
-    console.log(`   🎉 SUCCESS! Added: brojPolaska=${brojPolaska}, vozilo=${vozilo}, vreme=${startTime}`);
+    console.log(`✅ Added: brojPolaska=${brojPolaska}, vozilo=${vozilo}, vreme=${startTime}`);
   }
 
-  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`📊 FINAL STATISTICS`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`Total vehicles in JSON: ${data.length}`);
-  console.log(`Line 95 vehicles found: ${line95Count}`);
-  console.log(`Failed tripId check: ${failedTripIdCheck}`);
-  console.log(`Failed vehicleId check: ${failedVehicleIdCheck}`);
-  console.log(`Failed timetable check: ${failedTimetableCheck}`);
-  console.log(`✅ SUCCESSFULLY ADDED: ${liveVehicles.length}`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+  console.log(`📊 Line 95 vehicles found: ${line95Count}`);
+  console.log(`✅ Successfully added: ${liveVehicles.length}`);
 
   return liveVehicles;
 }
 
 export async function updateSheetData(sheets, liveVehicles) {
+  console.log('📝 updateSheetData() started');
+  
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: FULL_RANGE,
@@ -480,15 +422,22 @@ export async function updateSheetData(sheets, liveVehicles) {
   const rows = res.data.values || [];
   const header = rows.shift() || ["Brojpolaska", "Vozilo", "Vremepolaska", "Zamena 1", "Zamena 2", "Zamena 3"];
 
+  // Učitaj postojeće stanje sheet-a
+  // Ključ je brojPolaska (ne vreme!)
   const sheetState = new Map();
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    const brojPolaska = row[0];
     const vreme = row[2];
-    if (vreme) {
-      sheetState.set(vreme, {
+    
+    if (brojPolaska) {
+      // Ključ je kombinacija brojPolaska i vreme
+      const key = `${brojPolaska}_${vreme}`;
+      sheetState.set(key, {
         rowIndex: i + 2, 
         brojPolaska: row[0],
         vozilo: row[1],
+        vreme: row[2],
         zamena1: row[3] || null,
         zamena2: row[4] || null,
         zamena3: row[5] || null,
@@ -496,35 +445,65 @@ export async function updateSheetData(sheets, liveVehicles) {
     }
   }
 
+  console.log(`📋 Učitano ${sheetState.size} redova iz sheet-a`);
+
   const updateRequests = [];
   const appendRequests = [];
 
   for (const vehicle of liveVehicles) {
-    const existingEntry = sheetState.get(vehicle.vreme);
+    const key = `${vehicle.brojPolaska}_${vehicle.vreme}`;
+    const existingEntry = sheetState.get(key);
     const novoVozilo = vehicle.vozilo;
 
+    console.log(`\n🔍 Obrađujem: Broj Polaska ${vehicle.brojPolaska}, Vreme ${vehicle.vreme}, Vozilo ${novoVozilo}`);
+
     if (!existingEntry) {
+      // Nema tog reda u sheet-u, dodaj novi red
       appendRequests.push([
         vehicle.brojPolaska,
         novoVozilo,
         vehicle.vreme,
         "", "", ""
       ]);
-      sheetState.set(vehicle.vreme, { 
+      
+      sheetState.set(key, { 
         rowIndex: -1, 
-        brojPolaska: vehicle.brojPolaska, 
-        vozilo: novoVozilo 
+        brojPolaska: vehicle.brojPolaska,
+        vozilo: novoVozilo,
+        vreme: vehicle.vreme
       });
+      
+      console.log(`  ➕ Dodajem novi red za polazak ${vehicle.brojPolaska} u ${vehicle.vreme}`);
     } else {
+      // Red postoji, proveri da li je vozilo isto
       const { rowIndex, vozilo, zamena1, zamena2, zamena3 } = existingEntry;
       
+      // Poslednje poznato vozilo je ili zamena3, zamena2, zamena1, ili originalno vozilo
       const lastKnownVehicle = zamena3 || zamena2 || zamena1 || vozilo;
+      
+      console.log(`  📌 Red postoji na poziciji ${rowIndex}`);
+      console.log(`  📌 Originalno vozilo: ${vozilo}`);
+      console.log(`  📌 Zamena 1: ${zamena1 || 'nema'}`);
+      console.log(`  📌 Zamena 2: ${zamena2 || 'nema'}`);
+      console.log(`  📌 Zamena 3: ${zamena3 || 'nema'}`);
+      console.log(`  📌 Poslednje poznato vozilo: ${lastKnownVehicle}`);
+      console.log(`  📌 Novo vozilo: ${novoVozilo}`);
 
       if (lastKnownVehicle !== novoVozilo) {
+        // Vozilo se promenilo, dodaj u sledeću slobodnu zamenu
         let updateColumn = null;
-        if (!zamena1) updateColumn = 'D';
-        else if (!zamena2) updateColumn = 'E';
-        else if (!zamena3) updateColumn = 'F';
+        if (!zamena1) {
+          updateColumn = 'D';
+          console.log(`  🔄 Vozilo se promenilo! Dodajem u Zamena 1`);
+        } else if (!zamena2) {
+          updateColumn = 'E';
+          console.log(`  🔄 Vozilo se promenilo! Dodajem u Zamena 2`);
+        } else if (!zamena3) {
+          updateColumn = 'F';
+          console.log(`  🔄 Vozilo se promenilo! Dodajem u Zamena 3`);
+        } else {
+          console.log(`  ⚠️ Sve zamene su popunjene, ne mogu dodati više`);
+        }
 
         if (updateColumn) {
           updateRequests.push({
@@ -532,15 +511,21 @@ export async function updateSheetData(sheets, liveVehicles) {
             values: [[novoVozilo]],
           });
           
+          // Ažuriraj lokalno stanje
           if (updateColumn === 'D') existingEntry.zamena1 = novoVozilo;
           else if (updateColumn === 'E') existingEntry.zamena2 = novoVozilo;
           else if (updateColumn === 'F') existingEntry.zamena3 = novoVozilo;
         }
+      } else {
+        console.log(`  ✅ Vozilo je isto, ne menjam ništa`);
       }
     }
   }
 
+  console.log(`\n📊 Rezultat: ${appendRequests.length} novih redova, ${updateRequests.length} ažuriranja`);
+
   if (appendRequests.length > 0) {
+    console.log('➕ Dodajem nove redove...');
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_NAME}!A:F`,
@@ -552,6 +537,7 @@ export async function updateSheetData(sheets, liveVehicles) {
   }
 
   if (updateRequests.length > 0) {
+    console.log('🔄 Ažuriram postojeće redove...');
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: {
@@ -561,6 +547,7 @@ export async function updateSheetData(sheets, liveVehicles) {
     });
   }
 
+  // Učitaj finalno stanje
   const finalRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: FULL_RANGE,
@@ -568,6 +555,8 @@ export async function updateSheetData(sheets, liveVehicles) {
   
   const finalRows = finalRes.data.values || [];
   if (finalRows.length > 0) finalRows.shift(); 
+  
+  console.log('✅ updateSheetData() završeno');
   
   return { header, rows: finalRows };
 }
