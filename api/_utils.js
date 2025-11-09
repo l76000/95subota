@@ -323,29 +323,70 @@ export async function getGoogleSheetsClient() {
 
 export function parseBusLogicData(data) {
   if (!data || !data.vehicles) {
+    console.log('⚠️ Nema podataka ili nema vehicles niza');
     return [];
   }
 
   const liveVehicles = [];
+  let totalProcessed = 0;
+  let line95Count = 0;
+  let failedLineCheck = 0;
+  let failedTripIdCheck = 0;
+  let failedVehicleIdCheck = 0;
+  let failedTripIdFormatCheck = 0;
+  let failedDirectionCheck = 0;
+  let failedTimetableCheck = 0;
 
   for (const item of data.vehicles) {
     try {
+      totalProcessed++;
       const trip = item?.vehicle?.trip;
       const vehicle = item?.vehicle?.vehicle;
 
-      if (!trip || !vehicle || trip.lineNumber !== "95") {
+      // Log first item structure for debugging
+      if (totalProcessed === 1) {
+        console.log('🔍 Struktura trip objekta:', JSON.stringify(trip, null, 2));
+        console.log('🔍 Struktura vehicle objekta:', JSON.stringify(vehicle, null, 2));
+      }
+
+      if (!trip || !vehicle) {
         continue;
       }
 
-      const tripId = trip.tripId;
-      const vehicleId = vehicle.id;
+      // Check multiple possible field names for line number
+      const lineNumber = trip.lineNumber || trip.routeId || trip.route_id || trip.lineId;
+      
+      if (lineNumber !== "95" && lineNumber !== 95) {
+        failedLineCheck++;
+        continue;
+      }
 
-      if (!tripId || !vehicleId || !vehicleId.startsWith('P9')) {
+      line95Count++;
+
+      const tripId = trip.tripId || trip.trip_id;
+      const vehicleId = vehicle.id || vehicle.label;
+
+      if (!tripId) {
+        failedTripIdCheck++;
+        console.log('⚠️ Vozilo bez tripId:', JSON.stringify(item, null, 2));
+        continue;
+      }
+
+      if (!vehicleId) {
+        failedVehicleIdCheck++;
+        console.log('⚠️ Vozilo bez vehicleId:', JSON.stringify(item, null, 2));
+        continue;
+      }
+
+      if (!vehicleId.startsWith('P9')) {
+        failedVehicleIdCheck++;
         continue;
       }
       
       const parts = tripId.split('_');
       if (parts.length !== 2) {
+        failedTripIdFormatCheck++;
+        console.log('⚠️ TripId nije u očekivanom formatu:', tripId, 'za vozilo:', vehicleId);
         continue;
       }
       
@@ -359,11 +400,15 @@ export function parseBusLogicData(data) {
       } else if (directionPrefix === '8171') {
         mapToUse = timetableMapB;
       } else {
+        failedDirectionCheck++;
+        console.log('⚠️ Nepoznat directionPrefix:', directionPrefix, 'za tripId:', tripId);
         continue;
       }
 
       const brojPolaska = mapToUse[timeFull];
       if (!brojPolaska) {
+        failedTimetableCheck++;
+        console.log('⚠️ Vreme nije u timetable mapi:', timeFull, 'za tripId:', tripId);
         continue;
       }
       
@@ -375,10 +420,25 @@ export function parseBusLogicData(data) {
         vreme: timeFull,
       });
 
+      console.log('✅ Uspešno parsirano vozilo:', { brojPolaska, vozilo, vreme: timeFull, tripId, vehicleId });
+
     } catch (e) {
-      console.error("Greška pri parsiranju vozila:", e, item);
+      console.error("❌ Greška pri parsiranju vozila:", e, item);
     }
   }
+
+  // Summary statistics
+  console.log('📊 STATISTIKA PARSIRANJA:');
+  console.log(`   Ukupno obrađeno vozila: ${totalProcessed}`);
+  console.log(`   Vozila sa linijom 95: ${line95Count}`);
+  console.log(`   Neuspelo zbog linije: ${failedLineCheck}`);
+  console.log(`   Neuspelo zbog tripId: ${failedTripIdCheck}`);
+  console.log(`   Neuspelo zbog vehicleId: ${failedVehicleIdCheck}`);
+  console.log(`   Neuspelo zbog formata tripId: ${failedTripIdFormatCheck}`);
+  console.log(`   Neuspelo zbog direction prefixa: ${failedDirectionCheck}`);
+  console.log(`   Neuspelo zbog vremena u mapi: ${failedTimetableCheck}`);
+  console.log(`   ✅ UKUPNO USPEŠNO: ${liveVehicles.length}`);
+
   return liveVehicles;
 }
 
@@ -455,7 +515,7 @@ export async function updateSheetData(sheets, liveVehicles) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET_NAME}!A:F`,
-      valueInputOption: 'USER_ENTERTAINED',
+      valueInputOption: 'USER_ENTERED',
       resource: {
         values: appendRequests,
       },
@@ -466,7 +526,7 @@ export async function updateSheetData(sheets, liveVehicles) {
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: {
-        valueInputOption: 'USER_ENTERTAINED',
+        valueInputOption: 'USER_ENTERED',
         data: updateRequests,
       },
     });
