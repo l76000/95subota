@@ -5,7 +5,7 @@ export const SHEET_NAME = 'Sheet1';
 const FULL_RANGE = `${SHEET_NAME}!A:F`;
 
 export const timetableMapA = {
- "04:45:00": 18,
+"04:45:00": 18,
 
 "05:05:00": 1,
 "05:25:00": 5,
@@ -153,7 +153,7 @@ export const timetableMapA = {
 };
 
 export const timetableMapB = {
- "04:00:00": 1,
+"04:00:00": 1,
 "04:25:00": 5,
 "04:45:00": 8,
 
@@ -278,6 +278,7 @@ export const timetableMapB = {
 "20:42:00": 13,
 "20:47:00": 14,
 "20:58:00": 16,
+"20:58:00": 17,
 
 "21:09:00": 18,
 "21:20:00": 1,
