@@ -10,7 +10,6 @@ export default async function handler(request, response) {
   try {
     console.log('🚀 START: Započinjem preuzimanje podataka...');
     
-    // Fetch with timeout and proper headers
     const fetchResponse = await fetch(BUSLOGIC_URL, {
       headers: {
         'Accept': 'application/json',
@@ -20,102 +19,26 @@ export default async function handler(request, response) {
     });
     
     console.log('📡 Response status:', fetchResponse.status);
-    console.log('📡 Response statusText:', fetchResponse.statusText);
-    console.log('📡 Response headers:', Object.fromEntries(fetchResponse.headers.entries()));
     
     if (!fetchResponse.ok) {
       throw new Error(`Greška pri preuzimanju podataka: ${fetchResponse.statusText}`);
     }
 
-    // Check response size
     const contentLength = fetchResponse.headers.get('content-length');
     console.log('📦 Content-Length header:', contentLength);
 
-    // Get as text first to verify complete reception
     const text = await fetchResponse.text();
     console.log('✅ Primljen tekst - dužina:', text.length, 'karaktera');
-    console.log('🔍 Prvih 200 karaktera:', text.slice(0, 200));
-    console.log('🔍 Poslednjih 200 karaktera:', text.slice(-200));
-    
-    // Check if it's valid JSON by looking at start and end
-    const startsWithBrace = text.trim().startsWith('{');
-    const endsWithBrace = text.trim().endsWith('}');
-    console.log('🔍 Počinje sa {:', startsWithBrace);
-    console.log('🔍 Završava sa }:', endsWithBrace);
 
-    // Parse JSON
-    console.log('🔄 Pokušavam parsiranje JSON-a...');
     const jsonData = JSON.parse(text);
-    console.log('✅ JSON uspešno parsiran!');
     
-    // Log top-level keys
-    console.log('🔑 Top-level ključevi u JSON-u:', Object.keys(jsonData));
-    
-    // Check vehicles array
-    if (jsonData.vehicles) {
-      console.log('🚌 vehicles je array:', Array.isArray(jsonData.vehicles));
-      console.log('🚌 Ukupan broj vozila u JSON-u:', jsonData.vehicles.length);
-      
-      if (jsonData.vehicles.length > 0) {
-        // Log first vehicle completely
-        console.log('🔬 PRVO VOZILO - KOMPLETAN OBJEKAT:');
-        console.log(JSON.stringify(jsonData.vehicles[0], null, 2));
-        
-        // Log first 5 vehicles with line numbers
-        console.log('🔬 PRVIH 5 VOZILA - OSNOVNE INFORMACIJE:');
-        for (let i = 0; i < Math.min(5, jsonData.vehicles.length); i++) {
-          const v = jsonData.vehicles[i];
-          const trip = v?.vehicle?.trip;
-          const vehicle = v?.vehicle?.vehicle;
-          console.log(`Vozilo ${i + 1}:`, {
-            lineNumber: trip?.lineNumber,
-            routeId: trip?.routeId,
-            route_id: trip?.route_id,
-            lineId: trip?.lineId,
-            tripId: trip?.tripId || trip?.trip_id,
-            vehicleId: vehicle?.id || vehicle?.label
-          });
-        }
-        
-        // Search for ANY vehicle with "95" anywhere
-        console.log('🔍 TRAŽIM VOZILA SA "95" U BILO KOM POLJU...');
-        const anyWith95 = jsonData.vehicles.filter((v, index) => {
-          const str = JSON.stringify(v).toLowerCase();
-          const has95 = str.includes('"95"') || str.includes(':"95"') || str.includes(':95');
-          if (has95 && index < 3) {
-            console.log(`✨ Našao vozilo sa "95" na poziciji ${index}:`, JSON.stringify(v, null, 2));
-          }
-          return has95;
-        });
-        console.log('🎯 Ukupno vozila koja sadrže "95":', anyWith95.length);
-        
-        // Check specific line number patterns
-        const lineNumberChecks = {
-          'trip.lineNumber': 0,
-          'trip.routeId': 0,
-          'trip.route_id': 0,
-          'trip.lineId': 0,
-          'trip.line_id': 0
-        };
-        
-        jsonData.vehicles.forEach(v => {
-          const trip = v?.vehicle?.trip;
-          if (trip?.lineNumber === "95" || trip?.lineNumber === 95) lineNumberChecks['trip.lineNumber']++;
-          if (trip?.routeId === "95" || trip?.routeId === 95) lineNumberChecks['trip.routeId']++;
-          if (trip?.route_id === "95" || trip?.route_id === 95) lineNumberChecks['trip.route_id']++;
-          if (trip?.lineId === "95" || trip?.lineId === 95) lineNumberChecks['trip.lineId']++;
-          if (trip?.line_id === "95" || trip?.line_id === 95) lineNumberChecks['trip.line_id']++;
-        });
-        
-        console.log('📊 PROVERA RAZLIČITIH POLJA ZA LINIJU 95:');
-        console.log(lineNumberChecks);
-      }
+    // Check if jsonData is an array
+    if (Array.isArray(jsonData)) {
+      console.log('✅ JSON je NIZ sa', jsonData.length, 'vozila');
     } else {
-      console.log('❌ jsonData.vehicles ne postoji!');
-      console.log('❌ Dostupni ključevi:', Object.keys(jsonData));
+      console.log('⚠️ JSON je objekat, ključevi:', Object.keys(jsonData));
     }
-
-    console.log('🔄 Pozivam parseBusLogicData funkciju...');
+    
     const liveVehicles = parseBusLogicData(jsonData);
     console.log('✨ parseBusLogicData vratio:', liveVehicles.length, 'vozila');
     console.log('🎯 Filtrirana vozila:', liveVehicles);
@@ -133,8 +56,6 @@ export default async function handler(request, response) {
   } catch (error) {
     console.error('❌ GREŠKA:', error);
     console.error('❌ Stack trace:', error.stack);
-    console.error('❌ Error name:', error.name);
-    console.error('❌ Error message:', error.message);
     response.status(500).send(`<h1>Došlo je do greške</h1><p>${error.message}</p><pre>${error.stack}</pre>`);
   }
 }
