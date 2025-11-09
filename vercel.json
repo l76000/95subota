@@ -1,4 +1,14 @@
 {
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 10,
+      "memory": 1024
+    },
+    "api/clear.js": {
+      "maxDuration": 10,
+      "memory": 512
+    }
+  },
   "crons": [
     {
       "path": "/api/clear",
