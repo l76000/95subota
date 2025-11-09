@@ -323,12 +323,13 @@ export async function getGoogleSheetsClient() {
 export function parseBusLogicData(data) {
   console.log('🔧 parseBusLogicData() STARTED');
   
-  if (!data || !data.vehicles || !Array.isArray(data.vehicles)) {
-    console.log('❌ Invalid data structure');
+  // THE FIX: data is the array itself, not data.vehicles
+  if (!Array.isArray(data)) {
+    console.log('❌ data is not an array');
     return [];
   }
 
-  console.log(`✅ Processing ${data.vehicles.length} vehicles`);
+  console.log(`✅ Processing ${data.length} vehicles`);
 
   const liveVehicles = [];
   let line95Count = 0;
@@ -338,8 +339,8 @@ export function parseBusLogicData(data) {
 
   // First pass: Find ALL line 95 vehicles
   console.log('\n🔍 SEARCHING FOR LINE 95 VEHICLES...');
-  for (let i = 0; i < data.vehicles.length; i++) {
-    const item = data.vehicles[i];
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
     const trip = item?.vehicle?.trip;
     
     if (trip && trip.lineNumber === "95") {
@@ -354,8 +355,8 @@ export function parseBusLogicData(data) {
   console.log(`\n📊 Total line 95 vehicles found: ${line95Count}`);
 
   // Second pass: Process ALL vehicles
-  for (let i = 0; i < data.vehicles.length; i++) {
-    const item = data.vehicles[i];
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
     
     const trip = item?.vehicle?.trip;
     const vehicle = item?.vehicle?.vehicle;
@@ -458,7 +459,7 @@ export function parseBusLogicData(data) {
   console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`📊 FINAL STATISTICS`);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`Total vehicles in JSON: ${data.vehicles.length}`);
+  console.log(`Total vehicles in JSON: ${data.length}`);
   console.log(`Line 95 vehicles found: ${line95Count}`);
   console.log(`Failed tripId check: ${failedTripIdCheck}`);
   console.log(`Failed vehicleId check: ${failedVehicleIdCheck}`);
