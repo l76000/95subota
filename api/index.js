@@ -8,13 +8,37 @@ const BUSLOGIC_URL = "https://rt.buslogic.baguette.pirnet.si/beograd_not_gtfs_rt
 
 export default async function handler(request, response) {
   try {
-    const fetchResponse = await fetch(BUSLOGIC_URL);
+    // Fetch with timeout and proper headers
+    const fetchResponse = await fetch(BUSLOGIC_URL, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0'
+      },
+      // 10 second timeout
+      signal: AbortSignal.timeout(10000)
+    });
+    
     if (!fetchResponse.ok) {
       throw new Error(`Greška pri preuzimanju podataka: ${fetchResponse.statusText}`);
     }
-    const jsonData = await fetchResponse.json();
+
+    // Check response size
+    const contentLength = fetchResponse.headers.get('content-length');
+    console.log('📦 Očekivana veličina odgovora (bytes):', contentLength);
+
+    // Get as text first to verify complete reception
+    const text = await fetchResponse.text();
+    console.log('✅ Stvarna veličina primljenog teksta (bytes):', text.length);
+    console.log('🔍 Poslednji karakter odgovora:', text.slice(-10)); // Last 10 chars to verify JSON end
+
+    // Parse JSON
+    const jsonData = JSON.parse(text);
+    console.log('🚌 Ukupan broj vozila u JSON-u:', jsonData.vehicles?.length || 0);
+    console.log('📊 Primeri prvih 2 vozila:', JSON.stringify(jsonData.vehicles?.slice(0, 2), null, 2));
 
     const liveVehicles = parseBusLogicData(jsonData);
+    console.log('✨ Broj filtriranih vozila za liniju 95:', liveVehicles.length);
+    console.log('🎯 Filtrirana vozila:', liveVehicles);
     
     const sheets = await getGoogleSheetsClient();
     
@@ -27,7 +51,8 @@ export default async function handler(request, response) {
     response.status(200).send(html);
 
   } catch (error) {
-    console.error(error);
+    console.error('❌ Greška:', error);
+    console.error('❌ Stack trace:', error.stack);
     response.status(500).send(`<h1>Došlo je do greške</h1><p>${error.message}</p>`);
   }
 }
