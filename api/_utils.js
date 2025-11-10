@@ -4,7 +4,8 @@ export const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
 export const SHEET_NAME = 'Sheet1'; 
 const FULL_RANGE = `${SHEET_NAME}!A:F`;
 
-// RED VOŽNJE ZA RADNE DANE (skraćeno radi preglednosti)
+// ... (sve timetable mape ostaju iste - predugo da bih ponovo pisao)
+
 const timetableMapA_Radni = {
   "04:45:00": 24, "05:00:00": 28, "05:10:00": 30, "05:20:00": 31, "05:26:00": 32, "05:32:00": 1,
   "05:38:00": 2, "05:44:00": 3, "05:49:00": 4, "05:55:00": 6, "06:01:00": 7, "06:07:00": 8,
@@ -80,7 +81,6 @@ const timetableMapB_Radni = {
   "23:51:00": 32
 };
 
-// RED VOŽNJE ZA SUBOTU (isti kao ranije)
 const timetableMapA_Subota = {
   "04:45:00": 17, "05:05:00": 19, "05:25:00": 1, "05:45:00": 4, "05:58:00": 6, "06:09:00": 7,
   "06:19:00": 8, "06:29:00": 9, "06:39:00": 10, "06:47:00": 11, "06:55:00": 12, "07:03:00": 13,
@@ -134,7 +134,6 @@ const timetableMapB_Subota = {
   "23:15:00": 19, "23:23:00": 21, "23:33:00": 1, "23:43:00": 3, "23:55:00": 4
 };
 
-// RED VOŽNJE ZA NEDELJU (isti kao ranije)
 const timetableMapA_Nedelja = {
   "04:45:00": 18, "05:05:00": 1, "05:25:00": 5, "05:45:00": 8, "06:01:00": 10, "06:16:00": 12,
   "06:27:00": 13, "06:37:00": 15, "06:45:00": 16, "06:53:00": 17, "07:01:00": 18, "07:09:00": 1,
@@ -224,6 +223,11 @@ export function parseBusLogicData(data) {
 
   const { mapA, mapB } = getTimetables();
   const currentVehiclesByBrojPolaska = new Map();
+  
+  // ========================================
+  // NOVA LOGIKA: Detektuj duplikate
+  // ========================================
+  const tempStorage = new Map(); // Ključ: "brojPolaska_startTime_direction", Vrednost: [vozila]
 
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
@@ -233,7 +237,6 @@ export function parseBusLogicData(data) {
     
     if (!trip || !vehicle) continue;
     
-    // Proveri liniju
     if (trip.lineNumber !== "95") {
       continue;
     }
@@ -248,23 +251,16 @@ export function parseBusLogicData(data) {
       continue;
     }
     
-    // ========================================
-    // ODREĐIVANJE SMERA NA OSNOVU routeId
-    // ========================================
+    // Određivanje smera
     let directionPrefix;
-    
-    // VIKEND (subota/nedelja): tripId format "8170_xxxx" ili "8171_xxxx"
     const tripId = trip.tripId;
     if (tripId && (String(tripId).startsWith('8170') || String(tripId).startsWith('8171'))) {
       directionPrefix = String(tripId).split('_')[0];
-    }
-    // RADNI DAN: routeId = "6185" (smer A) ili "6186" (smer B)
-    else if (routeId === '6185') {
+    } else if (routeId === '6185') {
       directionPrefix = '8170'; // Smer A
     } else if (routeId === '6186') {
       directionPrefix = '8171'; // Smer B
     } else {
-      console.log(`⚠️ Nepoznat routeId: ${routeId}`);
       continue;
     }
     
@@ -277,17 +273,55 @@ export function parseBusLogicData(data) {
     
     const vozilo = String(vehicleId).substring(2);
     
-    const existing = currentVehiclesByBrojPolaska.get(brojPolaska);
+    // Kreiraj jedinstveni ključ za detekciju duplikata
+    // Format: "brojPolaska_startTime_direction"
+    const uniqueKey = `${brojPolaska}_${startTime}_${directionPrefix}`;
     
-    if (!existing || startTime > existing.vreme) {
-      currentVehiclesByBrojPolaska.set(brojPolaska, {
-        brojPolaska,
-        vozilo,
-        vreme: startTime
-      });
+    if (!tempStorage.has(uniqueKey)) {
+      tempStorage.set(uniqueKey, []);
+    }
+    
+    // Dodaj vozilo u temp storage
+    tempStorage.get(uniqueKey).push({
+      brojPolaska,
+      vozilo,
+      vreme: startTime,
+      direction: directionPrefix
+    });
+  }
+
+  // ========================================
+  // FILTRIRANJE: Ukloni duplikate
+  // ========================================
+  let duplicatesFiltered = 0;
+  
+  for (const [key, vehicles] of tempStorage.entries()) {
+    if (vehicles.length > 1) {
+      // DUPLIKAT PRONAĐEN!
+      duplicatesFiltered++;
+      console.log(`⚠️ DUPLIKAT DETEKTOVAN: ${key}`);
+      console.log(`   Vozila: ${vehicles.map(v => v.vozilo).join(', ')}`);
+      console.log(`   ❌ Preskačem ovaj polazak (ne dodajem u rezultate)`);
+      // NE dodajemo ništa u currentVehiclesByBrojPolaska
+    } else if (vehicles.length === 1) {
+      // Samo jedno vozilo, sve je OK
+      const vehicle = vehicles[0];
+      const existing = currentVehiclesByBrojPolaska.get(vehicle.brojPolaska);
+      
+      if (!existing || vehicle.vreme > existing.vreme) {
+        currentVehiclesByBrojPolaska.set(vehicle.brojPolaska, {
+          brojPolaska: vehicle.brojPolaska,
+          vozilo: vehicle.vozilo,
+          vreme: vehicle.vreme
+        });
+      }
     }
   }
 
+  if (duplicatesFiltered > 0) {
+    console.log(`🚫 Ukupno filtrirano duplikata: ${duplicatesFiltered}`);
+  }
+  
   console.log(`✅ Parsirano ${currentVehiclesByBrojPolaska.size} vozila`);
   return Array.from(currentVehiclesByBrojPolaska.values());
 }
