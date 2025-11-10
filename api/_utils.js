@@ -4,9 +4,7 @@ export const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
 export const SHEET_NAME = 'Sheet1'; 
 const FULL_RANGE = `${SHEET_NAME}!A:F`;
 
-// ========================================
-// RED VOŽNJE ZA RADNE DANE (Ponedeljak-Petak)
-// ========================================
+// RED VOŽNJE ZA RADNE DANE (skraćeno radi preglednosti)
 const timetableMapA_Radni = {
   "04:45:00": 24, "05:00:00": 28, "05:10:00": 30, "05:20:00": 31, "05:26:00": 32, "05:32:00": 1,
   "05:38:00": 2, "05:44:00": 3, "05:49:00": 4, "05:55:00": 6, "06:01:00": 7, "06:07:00": 8,
@@ -82,9 +80,7 @@ const timetableMapB_Radni = {
   "23:51:00": 32
 };
 
-// ========================================
-// RED VOŽNJE ZA SUBOTU
-// ========================================
+// RED VOŽNJE ZA SUBOTU (isti kao ranije)
 const timetableMapA_Subota = {
   "04:45:00": 17, "05:05:00": 19, "05:25:00": 1, "05:45:00": 4, "05:58:00": 6, "06:09:00": 7,
   "06:19:00": 8, "06:29:00": 9, "06:39:00": 10, "06:47:00": 11, "06:55:00": 12, "07:03:00": 13,
@@ -138,9 +134,7 @@ const timetableMapB_Subota = {
   "23:15:00": 19, "23:23:00": 21, "23:33:00": 1, "23:43:00": 3, "23:55:00": 4
 };
 
-// ========================================
-// RED VOŽNJE ZA NEDELJU
-// ========================================
+// RED VOŽNJE ZA NEDELJU (isti kao ranije)
 const timetableMapA_Nedelja = {
   "04:45:00": 18, "05:05:00": 1, "05:25:00": 5, "05:45:00": 8, "06:01:00": 10, "06:16:00": 12,
   "06:27:00": 13, "06:37:00": 15, "06:45:00": 16, "06:53:00": 17, "07:01:00": 18, "07:09:00": 1,
@@ -190,25 +184,22 @@ const timetableMapB_Nedelja = {
   "00:20:00": 6, "00:35:00": 7, "00:50:00": 10, "01:05:00": 13
 };
 
-// ========================================
-// FUNKCIJA ZA IZBOR REDA VOŽNJE
-// ========================================
 function getTimetables() {
   const now = new Date();
   const belgradeDateString = now.toLocaleString('en-US', { timeZone: 'Europe/Belgrade' });
   const belgradeDate = new Date(belgradeDateString);
   const dayOfWeek = belgradeDate.getDay();
 
-  console.log(`📅 Dan u nedelji (Beograd vreme): ${dayOfWeek} (0=Ned, 1=Pon, 6=Sub)`);
+  console.log(`📅 Dan u nedelji: ${dayOfWeek} (0=Ned, 1=Pon, 6=Sub)`);
 
   if (dayOfWeek === 0) {
-    console.log('📋 Koristim red vožnje za NEDELJU');
+    console.log('📋 Red vožnje: NEDELJA');
     return { mapA: timetableMapA_Nedelja, mapB: timetableMapB_Nedelja };
   } else if (dayOfWeek === 6) {
-    console.log('📋 Koristim red vožnje za SUBOTU');
+    console.log('📋 Red vožnje: SUBOTA');
     return { mapA: timetableMapA_Subota, mapB: timetableMapB_Subota };
   } else {
-    console.log('📋 Koristim red vožnje za RADNI DAN');
+    console.log('📋 Red vožnje: RADNI DAN');
     return { mapA: timetableMapA_Radni, mapB: timetableMapB_Radni };
   }
 }
@@ -226,8 +217,6 @@ export async function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth: authClient });
 }
 
-// ... (sve timetable mape ostaju iste)
-
 export function parseBusLogicData(data) {
   if (!Array.isArray(data)) {
     return [];
@@ -235,10 +224,6 @@ export function parseBusLogicData(data) {
 
   const { mapA, mapB } = getTimetables();
   const currentVehiclesByBrojPolaska = new Map();
-
-  console.log('\n🔍 ========== DETALJNA ANALIZA SVIH VOZILA LINIJE 95 ==========\n');
-
-  let line95Count = 0;
 
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
@@ -249,138 +234,63 @@ export function parseBusLogicData(data) {
     if (!trip || !vehicle) continue;
     
     // Proveri liniju
-    if (trip.lineNumber !== "95" && trip.routeId !== "00095") {
+    if (trip.lineNumber !== "95") {
       continue;
     }
-
-    line95Count++;
     
-    console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`🚌 VOZILO LINIJE 95 #${line95Count}`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log('CELI trip objekat:', JSON.stringify(trip, null, 2));
-    console.log('CELI vehicle objekat:', JSON.stringify(vehicle, null, 2));
-    console.log('CELI id root objekta:', item.id);
-    
-    const tripId = trip.tripId;
     const routeId = trip.routeId;
     const startTime = trip.startTime;
     const vehicleId = vehicle.id;
     
-    console.log(`\n📊 Ekstraktovano:`);
-    console.log(`   tripId: "${tripId}"`);
-    console.log(`   routeId: "${routeId}"`);
-    console.log(`   startTime: "${startTime}"`);
-    console.log(`   vehicleId: "${vehicleId}"`);
-    console.log(`   item.id (root): "${item.id}"`);
-    
-    if (!tripId || !vehicleId || !startTime) {
-      console.log(`❌ Nedostaje neki podatak, preskačem`);
-      continue;
-    }
+    if (!routeId || !startTime || !vehicleId) continue;
     
     if (!String(vehicleId).startsWith('P9')) {
-      console.log(`❌ vehicleId ne počinje sa P9`);
       continue;
     }
     
-    // Pokušaj da odredimo smer
-    const tripIdStr = String(tripId);
-    const itemIdStr = String(item.id || '');
+    // ========================================
+    // ODREĐIVANJE SMERA NA OSNOVU routeId
+    // ========================================
+    let directionPrefix;
     
-    console.log(`\n🔍 ANALIZA SMERA:`);
-    console.log(`   tripId contains "_A_": ${tripIdStr.includes('_A_')}`);
-    console.log(`   tripId contains "_B_": ${tripIdStr.includes('_B_')}`);
-    console.log(`   item.id contains "_A_": ${itemIdStr.includes('_A_')}`);
-    console.log(`   item.id contains "_B_": ${itemIdStr.includes('_B_')}`);
-    
-    // Pokušaj 1: Iz tripId
-    let directionPrefix = null;
-    
-    if (tripIdStr.startsWith('8170')) {
-      directionPrefix = '8170';
-      console.log(`✅ Pronađen smer iz tripId (vikend format): A (8170)`);
-    } else if (tripIdStr.startsWith('8171')) {
-      directionPrefix = '8171';
-      console.log(`✅ Pronađen smer iz tripId (vikend format): B (8171)`);
-    } else if (tripIdStr.includes('_A_RD_')) {
-      directionPrefix = '8170';
-      console.log(`✅ Pronađen smer iz tripId (radni format): A → 8170`);
-    } else if (tripIdStr.includes('_B_RD_')) {
-      directionPrefix = '8171';
-      console.log(`✅ Pronađen smer iz tripId (radni format): B → 8171`);
+    // VIKEND (subota/nedelja): tripId format "8170_xxxx" ili "8171_xxxx"
+    const tripId = trip.tripId;
+    if (tripId && (String(tripId).startsWith('8170') || String(tripId).startsWith('8171'))) {
+      directionPrefix = String(tripId).split('_')[0];
+    }
+    // RADNI DAN: routeId = "6185" (smer A) ili "6186" (smer B)
+    else if (routeId === '6185') {
+      directionPrefix = '8170'; // Smer A
+    } else if (routeId === '6186') {
+      directionPrefix = '8171'; // Smer B
     } else {
-      console.log(`⚠️ Ne mogu odrediti smer iz tripId!`);
-    }
-    
-    // Pokušaj 2: Iz item.id ako tripId nije uspeo
-    if (!directionPrefix && itemIdStr) {
-      if (itemIdStr.includes('_A_RD_')) {
-        directionPrefix = '8170';
-        console.log(`✅ Pronađen smer iz item.id: A → 8170`);
-      } else if (itemIdStr.includes('_B_RD_')) {
-        directionPrefix = '8171';
-        console.log(`✅ Pronađen smer iz item.id: B → 8171`);
-      }
-    }
-    
-    if (!directionPrefix) {
-      console.log(`❌ NISAM USPEO DA ODREDIM SMER!`);
+      console.log(`⚠️ Nepoznat routeId: ${routeId}`);
       continue;
     }
     
     const mapToUse = directionPrefix === '8170' ? mapA : mapB;
-    const mapName = directionPrefix === '8170' ? 'mapA (Smer A)' : 'mapB (Smer B)';
-    
-    console.log(`\n📋 Koristim: ${mapName}`);
-    console.log(`   Tražim vreme: "${startTime}"`);
-    
     const brojPolaska = mapToUse[startTime];
     
     if (!brojPolaska) {
-      console.log(`❌ Vreme "${startTime}" NIJE u ${mapName}`);
-      console.log(`   Prva 3 vremena u mapi:`, Object.keys(mapToUse).slice(0, 3));
       continue;
     }
-    
-    console.log(`✅ Pronađen brojPolaska: ${brojPolaska}`);
     
     const vozilo = String(vehicleId).substring(2);
     
     const existing = currentVehiclesByBrojPolaska.get(brojPolaska);
     
-    if (!existing) {
+    if (!existing || startTime > existing.vreme) {
       currentVehiclesByBrojPolaska.set(brojPolaska, {
         brojPolaska,
         vozilo,
         vreme: startTime
       });
-      console.log(`✅✅ USPEŠNO DODATO!`);
-    } else {
-      if (startTime > existing.vreme) {
-        currentVehiclesByBrojPolaska.set(brojPolaska, {
-          brojPolaska,
-          vozilo,
-          vreme: startTime
-        });
-        console.log(`✅✅ AŽURIRANO (novije vreme)!`);
-      } else {
-        console.log(`ℹ️ Već postoji sa novijim ili istim vremenom`);
-      }
     }
   }
 
-  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`📊 FINALNI REZULTAT`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`Ukupno vozila linije 95: ${line95Count}`);
-  console.log(`Uspešno parsirano: ${currentVehiclesByBrojPolaska.size}`);
-  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-
+  console.log(`✅ Parsirano ${currentVehiclesByBrojPolaska.size} vozila`);
   return Array.from(currentVehiclesByBrojPolaska.values());
 }
-
-// ... (ostale funkcije ostaju iste)
 
 export async function updateSheetData(sheets, liveVehicles) {
   const res = await sheets.spreadsheets.values.get({
@@ -444,13 +354,9 @@ export async function updateSheetData(sheets, liveVehicles) {
 
       if (lastKnownVehicle !== novoVozilo) {
         let updateColumn = null;
-        if (!zamena1) {
-          updateColumn = 'D';
-        } else if (!zamena2) {
-          updateColumn = 'E';
-        } else if (!zamena3) {
-          updateColumn = 'F';
-        }
+        if (!zamena1) updateColumn = 'D';
+        else if (!zamena2) updateColumn = 'E';
+        else if (!zamena3) updateColumn = 'F';
 
         if (updateColumn) {
           updateRequests.push({
