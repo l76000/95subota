@@ -11,8 +11,8 @@
   },
   "crons": [
     {
-      "path": "/api/clear",
-      "schedule": "0 2 * * *"
+      "path": "/api/reset-sheet",
+      "schedule": "0 0 * * *"
     }
   ],
   "rewrites": [
