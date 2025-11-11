@@ -1,10 +1,61 @@
 import { 
   getGoogleSheetsClient, 
   parseBusLogicData, 
-  updateSheetData 
+  updateSheetData,
+  SPREADSHEET_ID,
+  SHEET_NAME
 } from './_utils.js';
 
 const BUSLOGIC_URL = "https://rt.buslogic.baguette.pirnet.si/beograd_not_gtfs_rt/rt.json";
+
+// Čuvaj poslednji datum kada je sheet bio očišćen
+let lastResetDate = null;
+
+async function checkAndResetSheet(sheets) {
+  const now = new Date();
+  const belgradeDateString = now.toLocaleString('en-US', { timeZone: 'Europe/Belgrade' });
+  const belgradeDate = new Date(belgradeDateString);
+  
+  const hour = belgradeDate.getHours();
+  const minute = belgradeDate.getMinutes();
+  const currentDate = belgradeDate.toLocaleDateString('sr-RS');
+  
+  console.log(`📅 Trenutni datum u Beogradu: ${currentDate}`);
+  console.log(`⏰ Trenutno vreme u Beogradu: ${hour}:${minute.toString().padStart(2, '0')}`);
+  console.log(`📅 Poslednji reset: ${lastResetDate || 'nikada'}`);
+  
+  // Proveri da li je trenutno vreme između 02:00 i 02:59
+  const isResetTime = (hour === 2);
+  
+  if (isResetTime && lastResetDate !== currentDate) {
+    console.log('🔄 VREME ZA RESET (02:00-02:59) I NOVI DAN! Čistim sheet...');
+    
+    try {
+      // Obriši sve redove osim header-a
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${SHEET_NAME}!A2:F`,
+      });
+      
+      console.log('✅ Sheet uspešno očišćen za novi dan!');
+      lastResetDate = currentDate;
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Greška pri čišćenju sheet-a:', error);
+      return false;
+    }
+  } else if (isResetTime && lastResetDate === currentDate) {
+    console.log('✅ Sheet je već resetovan danas u 2:00');
+    return false;
+  } else if (!isResetTime && lastResetDate !== currentDate) {
+    console.log(`⏰ Nije još vreme za reset (čeka se 02:00, sada je ${hour}:${minute.toString().padStart(2, '0')})`);
+    return false;
+  } else {
+    console.log('✅ Sve OK, nastavlja se normalan rad');
+    return false;
+  }
+}
 
 export default async function handler(request, response) {
   try {
@@ -18,32 +69,23 @@ export default async function handler(request, response) {
       signal: AbortSignal.timeout(10000)
     });
     
-    console.log('📡 Response status:', fetchResponse.status);
-    
     if (!fetchResponse.ok) {
       throw new Error(`Greška pri preuzimanju podataka: ${fetchResponse.statusText}`);
     }
 
-    const contentLength = fetchResponse.headers.get('content-length');
-    console.log('📦 Content-Length header:', contentLength);
-
-    const text = await fetchResponse.text();
-    console.log('✅ Primljen tekst - dužina:', text.length, 'karaktera');
-
-    const jsonData = JSON.parse(text);
+    const jsonData = await fetchResponse.json();
     
-    // Check if jsonData is an array
     if (Array.isArray(jsonData)) {
       console.log('✅ JSON je NIZ sa', jsonData.length, 'vozila');
-    } else {
-      console.log('⚠️ JSON je objekat, ključevi:', Object.keys(jsonData));
     }
     
     const liveVehicles = parseBusLogicData(jsonData);
     console.log('✨ parseBusLogicData vratio:', liveVehicles.length, 'vozila');
-    console.log('🎯 Filtrirana vozila:', liveVehicles);
     
     const sheets = await getGoogleSheetsClient();
+    
+    // PROVERA I RESETOVANJE SHEET-a u 2:00
+    await checkAndResetSheet(sheets);
     
     const { header, rows } = await updateSheetData(sheets, liveVehicles);
 
@@ -55,8 +97,7 @@ export default async function handler(request, response) {
 
   } catch (error) {
     console.error('❌ GREŠKA:', error);
-    console.error('❌ Stack trace:', error.stack);
-    response.status(500).send(`<h1>Došlo je do greške</h1><p>${error.message}</p><pre>${error.stack}</pre>`);
+    response.status(500).send(`<h1>Došlo je do greške</h1><p>${error.message}</p>`);
   }
 }
 
@@ -70,7 +111,7 @@ function renderHtml(header, rows) {
     }
     
     const timeA = a[2] || "00:00:00";
-    const timeB = b[2] || "00:00:00";
+    const timeB = a[2] || "00:00:00";
     return timeA.localeCompare(timeB);
   });
 
